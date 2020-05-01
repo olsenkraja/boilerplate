@@ -1,0 +1,37 @@
+version: "3.3"
+services:
+  redis:
+    image: redis:alpine
+    container_name: boilerplate-redis
+
+  mariadb:
+    image: mariadb:10.4
+    container_name: boilerplate-mariadb
+    working_dir: /application
+    volumes:
+      - ./mariadb:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=boilerplate
+      - MYSQL_DATABASE=boilerplate
+      - MYSQL_USER=boilerplate
+      - MYSQL_PASSWORD=boilerplate
+    ports:
+      - "8003:3306"
+
+  webserver:
+    image: nginx:alpine
+    container_name: boilerplate-webserver
+    working_dir: /application
+    volumes:
+      - ./api:/application
+      - ./phpdocker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+
+  app:
+    build: phpdocker/php-fpm
+    container_name: boilerplate-app
+    working_dir: /application
+    volumes:
+      - ./api:/application
+      - ./phpdocker/php-fpm/php-ini-overrides.ini:/etc/php/7.4/fpm/conf.d/99-overrides.ini
