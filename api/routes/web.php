@@ -18,5 +18,6 @@ Route::patch('/rooms/{code}/playing', 'RoomController@playing');
 Route::patch('/rooms/{code}/finished', 'RoomController@finished');
 Route::patch('/rooms/{code}/reset', 'RoomController@reset');
 
-Route::patch('/rounds/{userUuid}/{votedForUserUuid}', 'RoundController@vote');
+Route::patch('/rounds/vote/{userUuid}/{votedForUserUuid}', 'RoundController@vote');
+Route::patch('/rounds/reveal/{userUuid}/{placeLabel}', 'RoundController@reveal');
 

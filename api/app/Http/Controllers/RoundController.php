@@ -123,7 +123,55 @@ class RoundController extends Controller
             }
             DB::commit();
 
-//            return $round;
+            return $room->status;
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
+    }
+
+    public function reveal(string $userUuid, string $placeLabel)
+    {
+        try {
+            DB::beginTransaction();
+            $voter = Round::where('user_uuid', $userUuid)->first();
+            $room = Room::find($voter->room_code);
+            if ($room->status === 'playing' && $room->spy_uuid === $userUuid) {
+                $users = Round::where('room_code', $room->code)->get();
+                foreach ($users->toArray() as $user) {
+                    $score = Score::where('user_uuid', $user['user_uuid'])->first();
+                    $isSpy = $user['user_uuid'] === $room->spy_uuid;
+                    $correctPlace = $room->place_label === $placeLabel;
+                    if ($score) {
+                        if ($isSpy && $correctPlace) {
+                            $score->points = $score->points + $room->points_for_spy_win;
+                        } else if (!$isSpy && !$correctPlace) {
+                            $score->points = $score->points + $room->points_for_spy_loss;
+                        }
+                        $score->rounds_played = $score->rounds_played + 1;
+                        $score->save();
+                    } else {
+                        if ($isSpy && $correctPlace) {
+                            $points = $room->points_for_spy_win;
+                        } else if (!$isSpy && !$correctPlace) {
+                            $points = $room->points_for_spy_loss;
+                        } else {
+                            $points = 0;
+                        }
+                        Score::create([
+                            'room_code' => $room->code,
+                            'user_uuid' => $user['user_uuid'],
+                            'points' => $points,
+                            'rounds_played' => 1,
+                        ]);
+                    }
+                }
+                $room->status = 'finished';
+                $room->save();
+            }
+            DB::commit();
+
+            return $room->status;
         } catch (\Exception $exception) {
             DB::rollBack();
             throw $exception;
