@@ -7,3 +7,16 @@ Route::get('/', function () {
         'dummy' => "Lorem ipsum dolor!"
     ];
 });
+
+Route::get('/users/{roomCode}', 'UserController@index');
+Route::post('/users', 'UserController@store');
+Route::delete('/users/{uuid}', 'UserController@destroy');
+
+Route::post('/rooms', 'RoomController@store');
+Route::patch('/rooms/{code}/prepare', 'RoomController@prepare');
+Route::patch('/rooms/{code}/playing', 'RoomController@playing');
+Route::patch('/rooms/{code}/finished', 'RoomController@finished');
+Route::patch('/rooms/{code}/reset', 'RoomController@reset');
+
+Route::patch('/rounds/{userUuid}/{votedForUserUuid}', 'RoundController@vote');
+
