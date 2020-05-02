@@ -16,4 +16,8 @@ class Score extends Model
         'points',
         'rounds_played'
     ];
+
+    public function user() {
+        return $this->hasOne(User::class, 'uuid', 'user_uuid');
+    }
 }

@@ -92,25 +92,27 @@ class RoomController extends Controller
         try {
             DB::beginTransaction();
             $room = Room::find($code);
-            $room->status = 'prepare';
-            $newUsers = User::where('room_code', $code)->get()->toArray();
-            $oldUsers = Round::where('room_code', $code)->get();
-            Round::destroy($oldUsers->pluck('uuid')->toArray());
-            foreach ($newUsers as &$user) {
-                $user['user_uuid'] = $user['uuid'];
-                unset($user['uuid']);
-                unset($user['name']);
-                unset($user['role_label']);
-                unset($user['created_at']);
-                unset($user['updated_at']);
+            if ($room->status === null) {
+                $room->status = 'prepare';
+                $newUsers = User::where('room_code', $code)->get()->toArray();
+                $oldUsers = Round::where('room_code', $code)->get();
+                Round::destroy($oldUsers->pluck('uuid')->toArray());
+                foreach ($newUsers as &$user) {
+                    $user['user_uuid'] = $user['uuid'];
+                    unset($user['uuid']);
+                    unset($user['name']);
+                    unset($user['role_label']);
+                    unset($user['created_at']);
+                    unset($user['updated_at']);
+                }
+                $spyUuid = $newUsers[array_rand($newUsers, 1)]['user_uuid'];
+                Round::insert($newUsers);
+                $randomPlace = Place::all()->random(1)->first()->label;
+                $room->place_label = $randomPlace;
+                $room->spy_uuid = $spyUuid;
+                $room->fill($request->all())->save();
+                DB::commit();
             }
-            $spyUuid = $newUsers[array_rand($newUsers, 1)]['user_uuid'];
-            Round::insert($newUsers);
-            $randomPlace = Place::all()->random(1)->first()->label;
-            $room->place_label = $randomPlace;
-            $room->spy_uuid = $spyUuid;
-            $room->fill($request->all())->save();
-            DB::commit();
             return $room;
         } catch (\Exception $exception) {
             DB::rollBack();
@@ -120,11 +122,14 @@ class RoomController extends Controller
 
     public function playing(Request $request, string $code)
     {
-        $roleReactions = Round::where('room_code', 'XVQX0H')->pluck('role_reaction')->toArray();
         $room = Room::find($code);
-        if (!in_array(null, $roleReactions)) {
-            $room->status = 'playing';
-            $room->fill($request->all())->save();
+        if ($room->status === 'prepare') {
+            $roleReactions = Round::where('room_code', $code)->pluck('role_reaction')->toArray();
+            if (!in_array(null, $roleReactions)) {
+                $room->status = 'playing';
+                $room->round_ends_at = now()->addMinutes($room->round_duration);
+                $room->fill($request->all())->save();
+            }
         }
         return $room;
     }
@@ -132,27 +137,28 @@ class RoomController extends Controller
     public function finished(Request $request, string $code)
     {
         $room = Room::find($code);
-        $room->status = 'finished';
-        $room->fill($request->all())->save();
-        $room->spy_name = User::find($room->spy_uuid)->name;
-        $voters = Round::where('voted_for_user_uuid', $room->spy_uuid)->pluck('user_uuid')->toArray();
-        foreach ($voters as &$voter) {
-            $voter = User::find($voter)->name;
+        if ($room->status === 'finished') {
+            $room->spy_name = User::find($room->spy_uuid)->name;
+            $voters = Round::where('voted_for_user_uuid', $room->spy_uuid)->pluck('user_uuid')->toArray();
+            foreach ($voters as &$voter) {
+                $voter = User::find($voter)->name;
+            }
+            $room->voters = $voters;
         }
-        $room->voters = $voters;
         return $room;
     }
 
     public function reset(Request $request, string $code)
     {
         $room = Room::find($code);
-        $room->status = null;
-        $oldUsers = Round::where('room_code', $code)->get();
-        foreach ($oldUsers->pluck('user_uuid')->toArray() as $userUuid) {
-            Round::where('user_uuid', $userUuid)->delete();
+        if ($room->status === 'finished') {
+            $room->status = null;
+            $oldUsers = Round::where('room_code', $code)->get();
+            foreach ($oldUsers->pluck('user_uuid')->toArray() as $userUuid) {
+                Round::where('user_uuid', $userUuid)->delete();
+            }
+            $room->fill($request->all())->save();
         }
-        $room->fill($request->all())->save();
-
         return $room;
     }
 }

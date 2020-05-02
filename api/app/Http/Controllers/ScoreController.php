@@ -8,13 +8,12 @@ use Illuminate\Http\Request;
 class ScoreController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
+     * @param string $roomCode
+     * @return \Illuminate\Database\Eloquent\Builder[]|\Illuminate\Database\Eloquent\Collection
      */
-    public function index()
+    public function index(string $roomCode)
     {
-        //
+        return Score::with(['user'])->where('room_code', $roomCode)->get();
     }
 
     /**
